@@ -47,18 +47,18 @@ void modem_initiate_cmd(uint8_t cmd)
 		case MODEM_AT_CHECK:
 		{
 			modem_send_msg("AT");
-			cmd_val=1;
+			cmd_val=MODEM_AT_CHECK;
 			break;
 		}
 		case MODEM_GET_INF0:
 		{
-			cmd_val=2;
+			cmd_val=MODEM_GET_INF0;
 			modem_send_msg("ATI");
 			break;
 		}
 		case MODEM_GET_MANF_ID:
 		{
-			cmd_val=3;
+			cmd_val=MODEM_GET_MANF_ID;
 			modem_send_msg("AT+GMI");
 			break;
 		}
@@ -74,31 +74,31 @@ void modem_initiate_cmd(uint8_t cmd)
 		}
 		case MODEM_GET_TA_MODEL_INFO:
 		{
-			cmd_val=4;
+			cmd_val=MODEM_GET_TA_MODEL_INFO;
 			modem_send_msg("AT+GMM");
 			break;
 		}
 		case MODEM_CHECK_SIM_READY:
 		{
-			cmd_val=5;
+			cmd_val=MODEM_CHECK_SIM_READY;
 			modem_send_msg("AT+CPIN?");
 			break;
 		}
 		case MODEM_SET_NETWORK_REG:
 		{
-			cmd_val=6;
+			cmd_val=MODEM_SET_NETWORK_REG;
 			modem_send_msg("AT+CREG=1");
 			break;
 		}
 		case MODEM_CHECK_NETWORK_REG:
 		{
-			cmd_val=7;
+			cmd_val=MODEM_CHECK_NETWORK_REG;
 			modem_send_msg("AT+CREG?");
 			break;
 		}
 		case MODEM_ATTACH_GPRS:
 		{
-			cmd_val=8;
+			cmd_val=MODEM_ATTACH_GPRS;
 			modem_send_msg("AT+CGATT=1");
 			break;
 		}
@@ -116,7 +116,7 @@ void modem_initiate_cmd(uint8_t cmd)
 		}
 		case MODEM_SET_PDP:
 		{
-			cmd_val=11;
+			cmd_val=MODEM_SET_PDP;
 			char cmd[64];
 			sprintf(cmd, "AT+CGDCONT=1,\"IP\",\"%s\"", AIRTEL_APN);
 			modem_send_msg(cmd);
@@ -124,7 +124,7 @@ void modem_initiate_cmd(uint8_t cmd)
 		}
 		case MODEM_ACTIVATE_PDP:
 		{
-			cmd_val=12;
+			cmd_val=MODEM_ACTIVATE_PDP;
 			modem_send_msg("AT+QIACT=1");
 			break;
 		}
@@ -137,7 +137,7 @@ void modem_initiate_cmd(uint8_t cmd)
 		/********************************** MQTT AT Commands *****************************/
 		case MODEM_MQTT_VERSION_CFG:
 		{
-			cmd_val=13;
+			cmd_val=MODEM_MQTT_VERSION_CFG;
 			char cmd[128];
 			// --- Configure MQTT Version ---
 			sprintf(cmd, "AT+QMTCFG=\"version\",%d,4", MQTT_CLIENT_IDX);  //// MQTT v3.1.1
@@ -146,7 +146,7 @@ void modem_initiate_cmd(uint8_t cmd)
 		}
 		case MODEM_MQTT_OPEN:
 		{
-			cmd_val=14;
+			cmd_val=MODEM_MQTT_OPEN;
 			char cmd[128];
 			// --- Open MQTT Connection ---
 			sprintf(cmd, "AT+QMTOPEN=%d,\"%s\",%d", MQTT_CLIENT_IDX, MQTT_HOSTNAME, MQTT_PORT);
@@ -155,7 +155,7 @@ void modem_initiate_cmd(uint8_t cmd)
 		}
 		case MODEM_MQTT_CONN:
 		{
-			cmd_val=15;
+			cmd_val=MODEM_MQTT_CONN;
 			char cmd[128];
 			// --- Connect MQTT Client ---
 			sprintf(cmd, "AT+QMTCONN=%d,\"%s\"", MQTT_CLIENT_IDX, MQTT_CLIENT_ID);
@@ -164,7 +164,7 @@ void modem_initiate_cmd(uint8_t cmd)
 		}
 		case MODEM_MQTT_SUBSCRIBE:
 		{
-			cmd_val=16;
+			cmd_val=MODEM_MQTT_SUBSCRIBE;
 			char cmd[128];
 			// --- Subscribe to Topic ---
 			sprintf(cmd, "AT+QMTSUB=%d,1,\"%s\",%d", MQTT_CLIENT_IDX, MQTT_TOPIC_SUB, MQTT_QOS);
@@ -173,7 +173,7 @@ void modem_initiate_cmd(uint8_t cmd)
 		}
 		case MODEM_MQTT_PUBLISH:
 		{
-			cmd_val=17;
+			cmd_val=MODEM_MQTT_PUBLISH;
 			char cmd[128];
 			//sprintf(cmd, "AT+QMTPUB=%d,0,%d,\"%s\"", MQTT_CLIENT_IDX, MQTT_QOS, MQTT_TOPIC_PUB);
 			sprintf(cmd, "AT+QMTPUBEX=%d,%d,%d,%d,\"%s\",%d",

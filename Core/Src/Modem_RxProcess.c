@@ -50,7 +50,7 @@ void ModemRx_Process(void const * argument)
 			//print_msg("Rx Task Running\r\n");
 			switch(cmd_val)
 			{
-				case 1:
+				case MODEM_AT_CHECK:
 				{
 					osDelay(100);
 					if(modem_check_resp((const char*)EC200u_Rx_Buff,"OK"))
@@ -60,7 +60,7 @@ void ModemRx_Process(void const * argument)
 					}
 					break;
 				}
-				case 2:
+				case MODEM_GET_INF0:
 				{
 					osDelay(100);
 					const char* buffer_ptr = (const char*)EC200u_Rx_Buff;
@@ -69,7 +69,7 @@ void ModemRx_Process(void const * argument)
 					cmd_val=0;
 					break;
 				}
-				case 3:
+				case MODEM_GET_MANF_ID:
 				{
 					osDelay(100);
 					const char* buffer_ptr = (const char*)EC200u_Rx_Buff;
@@ -77,7 +77,7 @@ void ModemRx_Process(void const * argument)
 					cmd_val=0;
 					break;
 				}
-				case 4:
+				case MODEM_GET_TA_MODEL_INFO:
 				{
 					osDelay(100);
 					const char* buffer_ptr = (const char*)EC200u_Rx_Buff;
@@ -86,7 +86,7 @@ void ModemRx_Process(void const * argument)
 					memset(EC200u_Rx_Buff,0,sizeof(EC200u_Rx_Buff));
 					break;
 				}
-				case 5:
+				case MODEM_CHECK_SIM_READY:
 				{
 					if(modem_check_resp((const char*)EC200u_Rx_Buff,"READY"))
 					{
@@ -101,7 +101,7 @@ void ModemRx_Process(void const * argument)
 					}
 					break;
 				}
-				case 6:
+				case MODEM_CHECK_NETWORK_REG:
 				{
 					if(modem_check_resp((const char*)EC200u_Rx_Buff,"OK"))
 					{
@@ -116,7 +116,7 @@ void ModemRx_Process(void const * argument)
 					}
 					break;
 				}
-				case 8:
+				case MODEM_ATTACH_GPRS:
 				{
 					if(modem_check_resp((const char*)EC200u_Rx_Buff,"OK"))
 					{
@@ -131,7 +131,7 @@ void ModemRx_Process(void const * argument)
 					}
 					break;
 				}
-				case 11:
+				case MODEM_SET_PDP:
 				{
 					if(modem_check_resp((const char*)EC200u_Rx_Buff,"OK"))
 					{
@@ -146,7 +146,7 @@ void ModemRx_Process(void const * argument)
 					}
 					break;
 				}
-				case 12:
+				case MODEM_ACTIVATE_PDP:
 				{
 					if(modem_check_resp((const char*)EC200u_Rx_Buff,"OK"))
 					{
@@ -160,7 +160,7 @@ void ModemRx_Process(void const * argument)
 						print_msg("PDP is activation Failed\r\n");
 					}
 				}
-				case 13:
+				case MODEM_MQTT_VERSION_CFG:
 				{
 					if(modem_check_resp((const char*)EC200u_Rx_Buff,"OK"))
 					{
@@ -169,7 +169,7 @@ void ModemRx_Process(void const * argument)
 					}
 					break;
 				}
-				case 14:
+				case MODEM_MQTT_OPEN:
 				{
 					if(modem_check_resp((const char*)EC200u_Rx_Buff, "+QMTOPEN"))
 					{
@@ -187,7 +187,7 @@ void ModemRx_Process(void const * argument)
 					}
 					break;
 				}
-				case 15:
+				case MODEM_MQTT_CONN:
 				{
 					if(modem_check_resp((const char*)EC200u_Rx_Buff, "+QMTCONN"))
 					{
@@ -207,7 +207,7 @@ void ModemRx_Process(void const * argument)
 					}
 					break;
 				}
-				case 16:
+				case MODEM_MQTT_SUBSCRIBE:
 				{
 					if(modem_check_resp((const char*)EC200u_Rx_Buff, "ERROR"))
 					{
