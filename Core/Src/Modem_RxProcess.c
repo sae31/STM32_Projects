@@ -225,9 +225,7 @@ void ModemRx_Process(void const * argument)
 		osDelay(10);
 	}
 }
-#include <string.h>
-#include <stdint.h>
-#include <stddef.h>
+
 
 /**
  * \brief           Parse ATI response and extract revision info
