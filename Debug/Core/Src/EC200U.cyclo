@@ -1,9 +1,9 @@
 ../Core/Src/EC200U.c:28:9:modem_check_resp	2
 ../Core/Src/EC200U.c:38:6:modem_send_msg	1
-../Core/Src/EC200U.c:43:6:modem_initiate_cmd	22
-../Core/Src/EC200U.c:197:6:get_modem_info	1
-../Core/Src/EC200U.c:208:6:modem_set_sim_configurations	1
-../Core/Src/EC200U.c:230:6:modem_reset	1
-../Core/Src/EC200U.c:235:6:modem_mqtt_init	1
-../Core/Src/EC200U.c:254:6:modem_mqtt_publish	1
-../Core/Src/EC200U.c:261:6:format_json_message	3
+../Core/Src/EC200U.c:43:6:modem_initiate_cmd	37
+../Core/Src/EC200U.c:297:6:get_modem_info	1
+../Core/Src/EC200U.c:308:6:modem_set_sim_configurations	1
+../Core/Src/EC200U.c:330:6:modem_reset	1
+../Core/Src/EC200U.c:335:6:modem_mqtt_init	1
+../Core/Src/EC200U.c:354:6:modem_mqtt_publish	1
+../Core/Src/EC200U.c:361:6:format_json_message	3

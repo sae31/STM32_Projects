@@ -156,9 +156,9 @@ void modem_initiate_cmd(uint8_t cmd)
 		case MODEM_MQTT_CONN:
 		{
 			cmd_val=MODEM_MQTT_CONN;
-			char cmd[128];
+			char cmd[200];
 			// --- Connect MQTT Client ---
-			sprintf(cmd, "AT+QMTCONN=%d,\"%s\"", MQTT_CLIENT_IDX, MQTT_CLIENT_ID);
+			sprintf(cmd, "AT+QMTCONN=%d,\"%s\",\"%s\",\"%s\"", MQTT_CLIENT_IDX, MQTT_CLIENT_ID,MQTT_USERNAME,MQTT_PASSWORD);
 			modem_send_msg(cmd);
 			break;
 		}
@@ -186,6 +186,106 @@ void modem_initiate_cmd(uint8_t cmd)
 			modem_send_msg(cmd);
 			osDelay(100);
 			modem_send_msg(MQTT_PUB_Buff);
+			break;
+		}
+
+		/********************************** BLE AT Commands *****************************/
+		case MODEM_TURN_ON_BLE:
+		{
+			cmd_val=MODEM_TURN_ON_BLE;
+			modem_send_msg("AT+QBTPWR=1");
+			break;
+		}
+		case MODEM_TURN_OFF_BLE:
+		{
+			cmd_val=MODEM_TURN_OFF_BLE;
+			modem_send_msg("AT+QBTPWR=0");
+			break;
+		}
+		case MODEM_BLE_SET_ADV_PARAM:
+		{
+			cmd_val=MODEM_BLE_SET_ADV_PARAM;
+			modem_send_msg("AT+QBTGATADV=1,60,120,0,0,7,0");
+			break;
+		}
+		case MODEM_BLE_SET_SCAN_RESP_DATA:
+		{
+			cmd_val=MODEM_BLE_SET_SCAN_RESP_DATA;
+			modem_send_msg("AT+QBTADVRSPDATA=13,\"0C094368617261454332303055\"");
+			break;
+		}
+		case MODEM_BLE_SET_PRIMARY_SVC:
+		{
+			cmd_val=MODEM_BLE_SET_PRIMARY_SVC;
+			//send_at_command("AT+QBTGATSS=0,1,6144,1\r\n");
+			modem_send_msg("AT+QBTGATSS=0,1,44016,1");
+			break;
+		}
+		case MODEM_BLE_ADD_SVC_CHAR:
+		{
+			cmd_val=MODEM_BLE_ADD_SVC_CHAR;
+			modem_send_msg("AT+QBTGATSC=0,0,18,1,65268");  //18: Read and Notify
+			break;
+		}
+		case MODEM_BLE_CFG_CHAR_VALUE:
+		{
+			cmd_val=MODEM_BLE_CFG_CHAR_VALUE;
+			modem_send_msg("AT+QBTGATSCV=0,0,3,1,65268,42,\"48656C6C6F\"");
+			//send_at_command("AT+QBTGATSCV=0,0,3,1,65268,42,\"BBFF\"\r\n");
+			break;
+		}
+		case MODEM_BLE_FINSISH_ADDING_SVC:
+		{
+			cmd_val=MODEM_BLE_FINSISH_ADDING_SVC;
+			modem_send_msg("AT+QBTGATSSC=1,1");
+			break;
+		}
+		case MODEM_BLE_START_ADV:
+		{
+			cmd_val=MODEM_BLE_START_ADV;
+			modem_send_msg("AT+QBTADV=1");
+			break;
+		}
+		case MODEM_BLE_STOP_ADV:
+		{
+			cmd_val=MODEM_BLE_STOP_ADV;
+			modem_send_msg("AT+QBTADV=0");
+			break;
+		}
+		case MODEM_BLE_SET_NAME:
+		{
+			modem_send_msg("AT+QBTNAME=0,\"Chara_EC200U\"");
+			break;
+		}
+		case MODEM_BLE_GET_NAME:
+		{
+			modem_send_msg("AT+QBTNAME?");
+			break;
+		}
+		case MODEM_BLE_SEND_DATA:
+		{
+			//modem_ble_send_data_to_client(modem_ble_hex_data);
+//			modem_ble_send_data_to_client(modem_ble_hex_data, sizeof(ble_data));
+			break;
+		}
+
+		/********************************** GPS/GNSS AT Commands *****************************/
+
+		case MODEM_GPS_TURN_ON:
+		{
+			modem_send_msg("AT+QGPS=1");
+			break;
+		}
+		case MODEM_GPS_GET_CURR_LOCATION:
+		{
+			cmd_val=MODEM_GPS_GET_CURR_LOCATION;
+			modem_send_msg("AT+QGPSLOC=0");
+			break;
+		}
+		case MODEM_GPS_TURN_OFF:
+		{
+
+			modem_send_msg("AT+QGPSEND");
 			break;
 		}
 		default:

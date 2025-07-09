@@ -1,0 +1,3 @@
+../Core/Src/Modem_BLE.c:22:6:Modem_BLE_Start	40	static
+../Core/Src/Modem_BLE.c:28:6:Modem_BLE_Task	16	static
+../Core/Src/Modem_BLE.c:37:6:modem_ble_init	8	static

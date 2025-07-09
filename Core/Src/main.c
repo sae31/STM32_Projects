@@ -27,6 +27,8 @@
 #include "ATCommands.h"
 #include "Modem_RxProcess.h"
 #include <stdio.h>
+#include "Modem_BLE.h"
+#include "config.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,6 +53,7 @@ UART_HandleTypeDef huart2;
 osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
 osThreadId ModemRx_TaskHandle;
+osThreadId ModemBLE_TaskHandle;
 uint8_t EC200u_Rx_Buff[100];
 int Msg_cnt=0;
 /* USER CODE END PV */
@@ -129,6 +132,8 @@ int main(void)
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   Modem_Rx_Process_start();
+
+  //Modem_BLE_Start();
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
@@ -343,6 +348,15 @@ void StartDefaultTask(void const * argument)
 
   modem_mqtt_init();
 
+  #ifdef GPS_EN
+
+	modem_initiate_cmd(MODEM_GPS_TURN_OFF);
+	osDelay(1000);
+
+	modem_initiate_cmd(MODEM_GPS_TURN_ON);
+	osDelay(1000);
+
+  #endif
 
   for(;;)
   {
@@ -351,6 +365,12 @@ void StartDefaultTask(void const * argument)
 	//sprintf(MQTT_PUB_Buff,"Msg_count:%d",Msg_cnt++);
 	Msg_cnt++;
 	modem_mqtt_publish();
+	#ifdef GPS_EN
+
+	modem_initiate_cmd(MODEM_GPS_GET_CURR_LOCATION);
+	osDelay(500);
+
+	#endif
     osDelay(500);
   }
   /* USER CODE END 5 */
