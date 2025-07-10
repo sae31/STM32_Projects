@@ -126,6 +126,7 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
+
   osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 256);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
@@ -133,7 +134,7 @@ int main(void)
   /* add threads, ... */
   Modem_Rx_Process_start();
 
-  //Modem_BLE_Start();
+  Modem_BLE_Start();
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */

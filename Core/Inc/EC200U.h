@@ -10,7 +10,22 @@
 
 #include "stdint.h"
 
+typedef struct {
+    char utc_time[11];         // UTC time (HHMMSS.SSS)
+    double latitude;           // Decimal degrees
+    double longitude;          // Decimal degrees
+    double hdop;               // Horizontal dilution of precision
+    double altitude;           // Altitude (meters)
+    int fix;                   // Fix type (1=2D, 2=3D, etc.)
+    double cog;                // Course over ground (degrees)
+    double spkm;               // Speed in km/h
+    double spkn;               // Speed in knots
+    char date[7];              // Date (DDMMYY)
+    int nsat;                  // Number of satellites used
+} GpsData;
 extern char MQTT_PUB_Buff[512];
+extern GpsData GpsInfo_t;
+extern struct modem_info modem_info_t;
 
 uint8_t modem_check_resp(const char *str,char *find_str);
 void modem_send_msg(const char* msg);
@@ -21,5 +36,7 @@ void modem_reset();
 void modem_mqtt_init();
 void modem_mqtt_publish();
 void format_json_message();
-
+double convertDMMtoDecimal(const char *dmmStr, char direction);
+int modem_parse_gps_location(const char *response, GpsData *data);
+void modem_handle_mqtt_urc_codes();
 #endif /* INC_EC200U_H_ */

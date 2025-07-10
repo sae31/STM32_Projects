@@ -18,6 +18,10 @@
 /****************************** MACROS *************************************************/
 #define MQTT_PUB_BUFF_LEN 512
 
+/****************************** STRUCT *************************************************/
+
+
+GpsData GpsInfo_t;
 /****************************** Private Variables **************************************/
 uint8_t cmd_val=0;
 char MQTT_PUB_Buff[MQTT_PUB_BUFF_LEN]={0};
@@ -205,20 +209,27 @@ void modem_initiate_cmd(uint8_t cmd)
 		case MODEM_BLE_SET_ADV_PARAM:
 		{
 			cmd_val=MODEM_BLE_SET_ADV_PARAM;
-			modem_send_msg("AT+QBTGATADV=1,60,120,0,0,7,0");
+			//modem_send_msg("AT+QBTGATADV=1,60,120,0,0,7,0");
+			char cmd[128];
+			sprintf(cmd,"AT+QBTGATADV=1,%d,%d,0,0,7,0",MIN_INTERVAL,MAX_INTERVAL);
+			modem_send_msg(cmd);
 			break;
 		}
 		case MODEM_BLE_SET_SCAN_RESP_DATA:
 		{
 			cmd_val=MODEM_BLE_SET_SCAN_RESP_DATA;
-			modem_send_msg("AT+QBTADVRSPDATA=13,\"0C094368617261454332303055\"");
+			//modem_send_msg("AT+QBTADVRSPDATA=13,\"0C094368617261454332303055\""); //CharaEC200U
+			modem_send_msg("AT+QBTADVRSPDATA=7,\"5155454354454C\""); //QUECTEL
 			break;
 		}
 		case MODEM_BLE_SET_PRIMARY_SVC:
 		{
 			cmd_val=MODEM_BLE_SET_PRIMARY_SVC;
 			//send_at_command("AT+QBTGATSS=0,1,6144,1\r\n");
-			modem_send_msg("AT+QBTGATSS=0,1,44016,1");
+			//modem_send_msg("AT+QBTGATSS=0,1,44016,1");
+			char cmd[128];
+			sprintf(cmd,"AT+QBTGATSS=0,1,%d,1",GATTS_SERVICE_UUID);
+			modem_send_msg(cmd);
 			break;
 		}
 		case MODEM_BLE_ADD_SVC_CHAR:
@@ -358,6 +369,50 @@ void modem_mqtt_publish()
 	modem_initiate_cmd(MODEM_MQTT_PUBLISH);
 	osDelay(300);
 }
+void modem_handle_mqtt_urc_codes()
+{
+	switch(modem_info_t.mqtt_info_t.mqtt_urc_error)
+	{
+		case 1:
+		{
+			modem_info_t.mqtt_info_t.mqtt_urc_error=0;
+			modem_reset();
+			modem_mqtt_init();
+			break;
+		}
+		case 2:
+		{
+			modem_info_t.mqtt_info_t.mqtt_urc_error=0;
+			modem_reset();
+			modem_mqtt_init();
+			break;
+		}
+		case 3:
+		{
+			modem_info_t.mqtt_info_t.mqtt_urc_error=0;
+			modem_reset();
+			modem_mqtt_init();
+			break;
+		}
+		case 4:
+		{
+			modem_info_t.mqtt_info_t.mqtt_urc_error=0;
+			modem_reset();
+			modem_mqtt_init();
+			break;
+		}
+		case 5:
+		{
+			modem_info_t.mqtt_info_t.mqtt_urc_error=0;
+			break;
+		}
+		default:
+		{
+			break;
+		}
+
+	}
+}
 void format_json_message(void)
 {
     cJSON *root = cJSON_CreateObject();
@@ -386,5 +441,87 @@ void format_json_message(void)
     }
 
     cJSON_Delete(root);
+}
+// Convert NMEA DMM (Degrees and Decimal Minutes) to Decimal Degrees
+double convertDMMtoDecimal(const char *dmmStr, char direction)
+{
+    double dmm = atof(dmmStr);
+    int degrees = (int)(dmm / 100);
+    double minutes = dmm - (degrees * 100);
+    double decimal = degrees + (minutes / 60.0);
+    return (direction == 'S' || direction == 'W') ? -decimal : decimal;
+}
+int modem_parse_gps_location(const char *response, GpsData *data)
+{
+    const char *start = strstr(response, "+QGPSLOC:");
+    if (!start) return -1;
+    start += strlen("+QGPSLOC: ");
+
+    char buffer[128];
+    strncpy(buffer, start, sizeof(buffer) - 1);
+    buffer[sizeof(buffer) - 1] = '\0';
+
+    char *token = strtok(buffer, ",");
+    int field = 0;
+    char latStr[16], lonStr[16];
+    char latDir = 'N', lonDir = 'E';
+
+    while (token != NULL)
+    {
+        switch (field)
+        {
+            case 0:
+                strncpy(data->utc_time, token, sizeof(data->utc_time) - 1);
+                data->utc_time[sizeof(data->utc_time) - 1] = '\0';
+                break;
+            case 1:
+                strncpy(latStr, token, sizeof(latStr) - 1);
+                latStr[sizeof(latStr) - 1] = '\0';
+                latDir = latStr[strlen(latStr) - 1];
+                latStr[strlen(latStr) - 1] = '\0';
+                break;
+            case 2:
+                strncpy(lonStr, token, sizeof(lonStr) - 1);
+                lonStr[sizeof(lonStr) - 1] = '\0';
+                lonDir = lonStr[strlen(lonStr) - 1];
+                lonStr[strlen(lonStr) - 1] = '\0';
+                break;
+            case 3:
+                data->hdop = atof(token);
+                break;
+            case 4:
+                data->altitude = atof(token);
+                break;
+            case 5:
+                data->fix = atoi(token);
+                break;
+            case 6:
+                data->cog = atof(token);
+                break;
+            case 7:
+                data->spkm = atof(token);
+                break;
+            case 8:
+                data->spkn = atof(token);
+                break;
+            case 9:
+                strncpy(data->date, token, sizeof(data->date) - 1);
+                data->date[sizeof(data->date) - 1] = '\0';
+                break;
+            case 10:
+                data->nsat = atoi(token);
+                break;
+        }
+
+        token = strtok(NULL, ",");
+        field++;
+    }
+
+    if (field < 11) return -2;
+
+    data->latitude = convertDMMtoDecimal(latStr, latDir);
+    data->longitude = convertDMMtoDecimal(lonStr, lonDir);
+
+    return 0;
 }
 

@@ -23,7 +23,7 @@ struct modem_info modem_info_t;
 uint8_t Modem_AT_check=0;
 /****************************** External Variables **************************************/
 
-
+extern GpsData GpsInfo_t;
 /****************************** Function Prototypes **************************************/
 
 void print_msg(const char *msg)
@@ -215,8 +215,22 @@ void ModemRx_Process(void const * argument)
 						print_msg("Failed To subscribe to a topic\r\n");
 					}
 				}
+				case MODEM_GPS_GET_CURR_LOCATION:
+				{
+					if(modem_check_resp((const char*)EC200u_Rx_Buff, "+QGPSLOC:"))
+					{
+						modem_parse_gps_location((const char*)EC200u_Rx_Buff, &GpsInfo_t);
+					}
+				}
 				default:
 				{
+					if(modem_check_resp((const char*)EC200u_Rx_Buff, "+QMTSTAT"))
+					{
+						const char* p = (const char*)EC200u_Rx_Buff;
+						modem_info_t.mqtt_info_t.mqtt_client_idx = modem_parse_number(&p);
+						modem_info_t.mqtt_info_t.mqtt_urc_error=modem_parse_number(&p);
+						modem_handle_mqtt_urc_codes();
+					}
 					break;
 				}
 			}

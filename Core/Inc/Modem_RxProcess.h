@@ -28,6 +28,7 @@ struct mqtt_t
 	uint8_t mqtt_conn_stat;
 	uint8_t mqtt_conn_ret_code;
 	uint8_t mqtt_subs_stat;
+	uint8_t mqtt_urc_error;
 
 };
 struct modem_info

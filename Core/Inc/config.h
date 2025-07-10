@@ -28,6 +28,9 @@
 
 
 // ==== BLE CONFIGURATION ====
+#define MAX_INTERVAL  120
+#define MIN_INTERVAL  60
+#define GATTS_SERVICE_UUID  0XABF0
 
 
 // ==== GPS/GNSS CONFIGURATION ====
