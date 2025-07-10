@@ -1,0 +1,9 @@
+# Ignore all object, su, and cyclo files in Debug directory
+Debug/**/*.o
+Debug/**/*.su
+Debug/**/*.cyclo
+
+# Ignore ELF, list, and map files
+Debug/*.elf
+Debug/*.list
+Debug/*.map
