@@ -90,7 +90,8 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  //__enable_irq();
+  SCB->VTOR = 0x0800C000;
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -105,7 +106,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  //__enable_irq();
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -134,7 +135,7 @@ int main(void)
   /* add threads, ... */
   Modem_Rx_Process_start();
 
-  Modem_BLE_Start();
+  //Modem_BLE_Start();
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */

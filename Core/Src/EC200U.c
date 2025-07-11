@@ -219,7 +219,7 @@ void modem_initiate_cmd(uint8_t cmd)
 		{
 			cmd_val=MODEM_BLE_SET_SCAN_RESP_DATA;
 			//modem_send_msg("AT+QBTADVRSPDATA=13,\"0C094368617261454332303055\""); //CharaEC200U
-			modem_send_msg("AT+QBTADVRSPDATA=7,\"5155454354454C\""); //QUECTEL
+			modem_send_msg("AT+QBTADVRSPDATA=10,\"5155454354454C444556\""); //QUECTELBLE
 			break;
 		}
 		case MODEM_BLE_SET_PRIMARY_SVC:
