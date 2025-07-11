@@ -1,0 +1,13 @@
+../Core/Src/main.c:67:6:bootloader_send_ack	16	static
+../Core/Src/main.c:74:6:bootloader_send_Nack	16	static
+../Core/Src/main.c:81:19:write_flash_chunk	32	static
+../Core/Src/main.c:103:19:write_ota_data_to_flash	544	static
+../Core/Src/main.c:128:19:erase_application_flash	48	static
+../Core/Src/main.c:148:6:jump_to_application	24	static,ignoring_inline_asm
+../Core/Src/main.c:172:6:HAL_UARTEx_RxEventCallback	24	static
+../Core/Src/main.c:215:6:HAL_GPIO_EXTI_Rising_Callback	16	static
+../Core/Src/main.c:230:5:main	8	static
+../Core/Src/main.c:287:6:SystemClock_Config	88	static
+../Core/Src/main.c:334:13:MX_USART2_UART_Init	8	static
+../Core/Src/main.c:382:13:MX_GPIO_Init	48	static
+../Core/Src/main.c:417:6:Error_Handler	8	static,ignoring_inline_asm
