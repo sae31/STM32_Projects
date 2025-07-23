@@ -1,3 +1,7 @@
-../Core/Src/Modem_BLE.c:22:6:Modem_BLE_Start	1
-../Core/Src/Modem_BLE.c:28:6:Modem_BLE_Task	1
-../Core/Src/Modem_BLE.c:37:6:modem_ble_init	1
+../Core/Src/Modem_BLE.c:53:6:Modem_BLE_Start	1
+../Core/Src/Modem_BLE.c:59:6:Modem_BLE_Task	9
+../Core/Src/Modem_BLE.c:117:6:modem_ble_init	1
+../Core/Src/Modem_BLE.c:170:5:modem_parse_ble_state	5
+../Core/Src/Modem_BLE.c:196:6:modem_create_gatt_svc_characteristics	1
+../Core/Src/Modem_BLE.c:307:6:modem_parse_ble_write_data	13
+../Core/Src/Modem_BLE.c:354:6:hex_to_ascii	5

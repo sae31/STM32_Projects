@@ -4,17 +4,18 @@
  *  Created on: Jun 21, 2025
  *      Author: sai
  */
-#include "EC200U.h"
-#include "string.h"
-#include "stdio.h"
-#include "stdint.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include "ATCommands.h"
 #include "stm32g0xx_hal.h"
 #include "cmsis_os.h"
 #include "config.h"
 #include "cJSON.h"
 #include "Modem_RxProcess.h"
-#include "stdlib.h"
+#include "Modem_BLE.h"
+#include "EC200U.h"
 /****************************** MACROS *************************************************/
 #define MQTT_PUB_BUFF_LEN 512
 
@@ -22,9 +23,12 @@
 
 
 GpsData GpsInfo_t;
+mqtt_conf_t modem_mqtt_conf_t;
+extern flag mqtt_flag;
 /****************************** Private Variables **************************************/
 uint8_t cmd_val=0;
 char MQTT_PUB_Buff[MQTT_PUB_BUFF_LEN]={0};
+
 /****************************** External Variables **************************************/
 extern UART_HandleTypeDef huart1;
 extern int Msg_cnt;
@@ -215,6 +219,15 @@ void modem_initiate_cmd(uint8_t cmd)
 			modem_send_msg(cmd);
 			break;
 		}
+		case MODEM_BLE_SET_ADV_NAME:
+		{
+			cmd_val=MODEM_BLE_SET_ADV_NAME;
+			char cmd[128];
+			sprintf(cmd,"AT+QBTADVSTR=1,2,\"%s\"",DEFAULT_BLE_DEVICENAME);
+			modem_send_msg(cmd);
+			break;
+		}
+		/*
 		case MODEM_BLE_SET_SCAN_RESP_DATA:
 		{
 			cmd_val=MODEM_BLE_SET_SCAN_RESP_DATA;
@@ -222,6 +235,7 @@ void modem_initiate_cmd(uint8_t cmd)
 			modem_send_msg("AT+QBTADVRSPDATA=10,\"5155454354454C444556\""); //QUECTELBLE
 			break;
 		}
+		*/
 		case MODEM_BLE_SET_PRIMARY_SVC:
 		{
 			cmd_val=MODEM_BLE_SET_PRIMARY_SVC;
@@ -365,9 +379,22 @@ void modem_mqtt_init()
 void modem_mqtt_publish()
 {
 	format_json_message();
-	osDelay(100);
+//	osDelay(100);
 	modem_initiate_cmd(MODEM_MQTT_PUBLISH);
 	osDelay(300);
+}
+void modem_mqtt_connect()
+{
+	char cmd[200];
+	// --- Connect MQTT Client ---
+	sprintf(cmd, "AT+QMTCONN=%d,\"%s\",\"%s\",\"%s\"", MQTT_CLIENT_IDX, modem_mqtt_conf_t.mqtt_client_id,
+							modem_mqtt_conf_t.mqtt_username,modem_mqtt_conf_t.mqtt_password);
+	modem_send_msg(cmd);
+}
+void modem_mqtt_disconnect()
+{
+	modem_send_msg("AT+QMTDISC=0");
+	osDelay(1000);
 }
 void modem_handle_mqtt_urc_codes()
 {
@@ -415,6 +442,7 @@ void modem_handle_mqtt_urc_codes()
 }
 void format_json_message(void)
 {
+	char Lat_string[10],Long_string[10];
     cJSON *root = cJSON_CreateObject();
     if (root == NULL)
     {
@@ -423,7 +451,15 @@ void format_json_message(void)
     }
 
     cJSON_AddNumberToObject(root, "Msg_Count", Msg_cnt);
-
+    if(GpsInfo_t.latitude)
+    {
+    	//cJSON_AddNumberToObject(root, "Lat",GpsInfo_t.latitude);
+    	//cJSON_AddNumberToObject(root, "Long",GpsInfo_t.longitude);
+    	sprintf(Lat_string,"%.4f",GpsInfo_t.latitude);
+    	sprintf(Long_string,"%.4f",GpsInfo_t.longitude);
+		cJSON_AddStringToObject(root,"Lat",Lat_string);
+		cJSON_AddStringToObject(root,"Long",Long_string);
+    }
     char *json_str = cJSON_Print(root);
     if (json_str != NULL)
     {

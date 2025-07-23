@@ -1,5 +1,4 @@
-Core/Src/EC200U.o: ../Core/Src/EC200U.c ../Core/Inc/EC200U.h \
- ../Core/Inc/ATCommands.h \
+Core/Src/EC200U.o: ../Core/Src/EC200U.c ../Core/Inc/ATCommands.h \
  ../Drivers/STM32G0xx_HAL_Driver/Inc/stm32g0xx_hal.h \
  ../Core/Inc/stm32g0xx_hal_conf.h \
  ../Drivers/STM32G0xx_HAL_Driver/Inc/stm32g0xx_hal_rcc.h \
@@ -48,8 +47,8 @@ Core/Src/EC200U.o: ../Core/Src/EC200U.c ../Core/Inc/EC200U.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
- ../Core/Inc/config.h ../Core/Inc/cJSON.h ../Core/Inc/Modem_RxProcess.h
-../Core/Inc/EC200U.h:
+ ../Core/Inc/config.h ../Core/Inc/cJSON.h ../Core/Inc/Modem_RxProcess.h \
+ ../Core/Inc/Modem_BLE.h ../Core/Inc/config.h ../Core/Inc/EC200U.h
 ../Core/Inc/ATCommands.h:
 ../Drivers/STM32G0xx_HAL_Driver/Inc/stm32g0xx_hal.h:
 ../Core/Inc/stm32g0xx_hal_conf.h:
@@ -102,3 +101,6 @@ Core/Src/EC200U.o: ../Core/Src/EC200U.c ../Core/Inc/EC200U.h \
 ../Core/Inc/config.h:
 ../Core/Inc/cJSON.h:
 ../Core/Inc/Modem_RxProcess.h:
+../Core/Inc/Modem_BLE.h:
+../Core/Inc/config.h:
+../Core/Inc/EC200U.h:

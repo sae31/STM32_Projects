@@ -5,9 +5,12 @@
  *      Author: sai
  */
 /*****************************************  Header Files ***********************************************/
-#include "string.h"
-#include "stdio.h"
-#include "stdint.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <stdint.h>
 #include "ATCommands.h"
 #include "stm32g0xx_hal.h"
 #include "cmsis_os.h"
@@ -15,9 +18,37 @@
 #include "EC200U.h"
 #include "Modem_BLE.h"
 
+/***************************************** Macros ********************************************/
+#define SVC_UUID_ABF0   0
+#define UUID16_CAN_DATA 65268  // 0xFEF4
+
+/* ================== BLE GATT Characteristics ================================== */
+#define UU1D16_MQTT_USERNAME     45329  // 0xB111
+#define UUID16_MQTT_PASSWORD     45330  // 0XB112
+#define UUID16_MQTT_CLIENT_ID    45331  // 0XB113
+#define UUID16_MQTT_PORT         45332  // 0XB114
+
+/***************************************** Private Enumeration ********************************************/
+typedef enum Ble_char_id
+{
+	__BLE_TELEMETRY_CHAR_ID ,
+	__MQTT_USERNAME_CHAR_ID ,
+	__MQTT_PASSWORD_CHAR_ID,
+	__MQTT_CLIENT_CHAR_ID,
+	__MQTT_PORT_CHAR_ID ,
+}BLE_chara_id;
+
 /***************************************** Private Variables ********************************************/
 extern osThreadId ModemBLE_TaskHandle;
 extern UART_HandleTypeDef huart1;
+extern BLEWriteData BLE_Write_data;
+extern mqtt_conf_t modem_mqtt_conf_t;
+
+BleState Ble_info_t={0};
+flag mqtt_flag ={0};
+Gatt_param_t Modem_GATT_Param[MAX_CHAR_IN_SVC];
+char Ble_write_data_ascii[50];
+uint8_t client_write=0,clear_buff=0;
 /***************************************** Function Prototypes ******************************************/
 void Modem_BLE_Start()
 {
@@ -31,7 +62,56 @@ void Modem_BLE_Task(void const * argument)
 	modem_ble_init();
 	while(1)
 	{
-		osDelay(1000);
+//		if(Ble_info_t.conn_state==1)
+		{
+			if(client_write)
+			{
+
+				switch(BLE_Write_data.cid)
+				{
+					case __MQTT_USERNAME_CHAR_ID:
+					{
+						strcpy(modem_mqtt_conf_t.mqtt_username,Ble_write_data_ascii);
+						memset(Ble_write_data_ascii,0,sizeof(Ble_write_data_ascii));
+						mqtt_flag.change_on_mqtt_username=1;  //TODO :Need to compare previous data and set the flag
+						break;
+					}
+					case __MQTT_PASSWORD_CHAR_ID:
+					{
+						strcpy(modem_mqtt_conf_t.mqtt_password,Ble_write_data_ascii);
+						memset(Ble_write_data_ascii,0,sizeof(Ble_write_data_ascii));
+						mqtt_flag.change_on_mqtt_password=1;  //TODO :Need to compare previous data and set the flag
+						break;
+					}
+					case __MQTT_CLIENT_CHAR_ID:
+					{
+						strcpy(modem_mqtt_conf_t.mqtt_client_id,Ble_write_data_ascii);
+						memset(Ble_write_data_ascii,0,sizeof(Ble_write_data_ascii));
+						mqtt_flag.change_on_mqtt_clientid=1;   //TODO :Need to compare previous data and set the flag
+						break;
+					}
+					case __MQTT_PORT_CHAR_ID:
+					{
+						modem_mqtt_conf_t.mqtt_port=atoi(Ble_write_data_ascii);
+						memset(Ble_write_data_ascii,0,sizeof(Ble_write_data_ascii));
+						mqtt_flag.change_on_mqtt_port=1;   //TODO :Need to compare previous data and set the flag
+						break;
+					}
+					default:
+					{
+						break;
+					}
+				}
+				client_write=0;
+			}
+		}
+		if(clear_buff)
+		{
+			osDelay(100);
+			memset(EC200u_Rx_Buff,0,sizeof(EC200u_Rx_Buff));
+			clear_buff=0;
+		}
+		osDelay(10);
 	}
 }
 void modem_ble_init()
@@ -47,23 +127,30 @@ void modem_ble_init()
 	modem_initiate_cmd(MODEM_TURN_ON_BLE);
 	osDelay(2000);
 
-	modem_initiate_cmd(MODEM_BLE_SET_ADV_PARAM);
-	osDelay(2000);
 
+	modem_initiate_cmd(MODEM_BLE_SET_ADV_PARAM);
+	osDelay(1000);
+	/*
 	modem_initiate_cmd(MODEM_BLE_SET_ADV_DATA);
 	osDelay(2000);
 
 	modem_initiate_cmd(MODEM_BLE_SET_SCAN_RESP_DATA);
 	osDelay(2000);
+	*/
+	modem_initiate_cmd(MODEM_BLE_SET_ADV_NAME);
+	osDelay(1000);
 
 	modem_initiate_cmd(MODEM_BLE_SET_PRIMARY_SVC);
 	osDelay(2000);
 
+	/*
 	modem_initiate_cmd(MODEM_BLE_ADD_SVC_CHAR);
 	osDelay(2000);
 
 	modem_initiate_cmd(MODEM_BLE_CFG_CHAR_VALUE);
 	osDelay(2000);
+	*/
+	modem_create_gatt_svc_characteristics();
 
 	modem_initiate_cmd(MODEM_BLE_FINSISH_ADDING_SVC);
 	osDelay(2000);
@@ -79,4 +166,204 @@ void modem_ble_init()
 
 
 
+}
+int modem_parse_ble_state(const char *response, BleState *Ble_info_t)
+{
+    if (response == NULL || Ble_info_t == NULL) {
+        return -1; // Error: Null pointer
+    }
+
+    // Example: +QBTLESTATE: 0,0,"5d13f0ec567c",1,18
+    const char *prefix = "+QBTLESTATE:";
+    if (strncmp(response, prefix, strlen(prefix)) != 0) {
+        return -2; // Error: Invalid prefix
+    }
+
+    // Parse the fields
+    int ret = sscanf(response + strlen(prefix), " %d,%d,\"%19[^\"]\",%d,%d",
+                     &Ble_info_t->cid,
+                     &Ble_info_t->connID,
+                     Ble_info_t->address,
+                     &Ble_info_t->conn_state,
+                     &Ble_info_t->att_handle);
+
+    if (ret != 5) {
+        return -3; // Error: Failed to parse all fields
+    }
+
+    return 0; // Success
+}
+void modem_create_gatt_svc_characteristics()
+{
+	char cmd[200];
+
+	/* GATT CHAR 0xFEF4 */
+	Modem_GATT_Param[0].svc_uuid=SVC_UUID_ABF0;
+	Modem_GATT_Param[0].charaId =__BLE_TELEMETRY_CHAR_ID;
+	Modem_GATT_Param[0].svc_property= 18;  //Read and Notify
+	Modem_GATT_Param[0].uuid_type=1;     //16-bit UUID
+	Modem_GATT_Param[0].uuid_16 =UUID16_CAN_DATA;
+	Modem_GATT_Param[0].val_len=42;
+	strcpy(Modem_GATT_Param[0].char_value,"48656C6C6F"); // Send Hello
+	Modem_GATT_Param[0].char_permission=1;  // Read Only
+
+	sprintf(cmd,"AT+QBTGATSC=%d,%d,%d,%d,%d",Modem_GATT_Param[0].svc_uuid,Modem_GATT_Param[0].charaId,
+			Modem_GATT_Param[0].svc_property,Modem_GATT_Param[0].uuid_type,Modem_GATT_Param[0].uuid_16);
+	modem_send_msg(cmd);
+	osDelay(1000);
+
+	sprintf(cmd,"AT+QBTGATSCV=%d,%d,%d,%d,%d,%d,\"%s\"",Modem_GATT_Param[0].svc_uuid,Modem_GATT_Param[0].charaId,Modem_GATT_Param[0].char_permission,
+			Modem_GATT_Param[0].uuid_type,Modem_GATT_Param[0].uuid_16,Modem_GATT_Param[0].val_len,Modem_GATT_Param[0].char_value);
+
+	modem_send_msg(cmd);
+	osDelay(1000);
+
+	/* GATT CHAR 0xB111 Configure MQTT Username */
+	Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].svc_uuid=SVC_UUID_ABF0;
+	Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].charaId =__MQTT_USERNAME_CHAR_ID;
+	Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].svc_property= 4;  //Write
+	Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].uuid_type=1;     //16-bit UUID
+	Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].uuid_16 =UU1D16_MQTT_USERNAME;
+	Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].val_len=20;
+	strcpy(Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].char_value,"48656C6C6F"); // Send NULL
+	Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].char_permission=2;  // write Only
+
+	sprintf(cmd,"AT+QBTGATSC=%d,%d,%d,%d,%d",Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].svc_uuid,Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].charaId,
+			Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].svc_property,Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].uuid_type,Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].uuid_16);
+	modem_send_msg(cmd);
+	osDelay(1000);
+
+	sprintf(cmd,"AT+QBTGATSCV=%d,%d,%d,%d,%d,%d,\"%s\"",Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].svc_uuid,Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].charaId,Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].char_permission,
+			Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].uuid_type,Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].uuid_16,Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].val_len,Modem_GATT_Param[__MQTT_USERNAME_CHAR_ID].char_value);
+
+	modem_send_msg(cmd);
+	osDelay(1000);
+
+	/* GATT CHAR 0xB112--> Configure MQTT Password */
+	Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].svc_uuid=SVC_UUID_ABF0;
+	Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].charaId =__MQTT_PASSWORD_CHAR_ID;
+	Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].svc_property= 4;  //Write
+	Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].uuid_type=1;     //16-bit UUID
+	Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].uuid_16 =UUID16_MQTT_PASSWORD;
+	Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].val_len=20;
+	strcpy(Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].char_value,"48656C6C6F"); // Send NULL
+	Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].char_permission=2;  // write Only
+
+	sprintf(cmd,"AT+QBTGATSC=%d,%d,%d,%d,%d",Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].svc_uuid,Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].charaId,
+			Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].svc_property,Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].uuid_type,Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].uuid_16);
+	modem_send_msg(cmd);
+	osDelay(1000);
+
+	sprintf(cmd,"AT+QBTGATSCV=%d,%d,%d,%d,%d,%d,\"%s\"",Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].svc_uuid,Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].charaId,Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].char_permission,
+			Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].uuid_type,Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].uuid_16,Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].val_len,Modem_GATT_Param[__MQTT_PASSWORD_CHAR_ID].char_value);
+
+	modem_send_msg(cmd);
+	osDelay(1000);
+
+	/* GATT CHAR 0xB113--> Configure MQTT ClientID */
+	Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].svc_uuid=SVC_UUID_ABF0;
+	Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].charaId =__MQTT_CLIENT_CHAR_ID;
+	Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].svc_property= 4;  //Write
+	Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].uuid_type=1;     //16-bit UUID
+	Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].uuid_16 =UUID16_MQTT_CLIENT_ID;
+	Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].val_len=20;
+	strcpy(Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].char_value,"48656C6C6F"); // Send NULL
+	Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].char_permission=2;  // write Only
+
+	sprintf(cmd,"AT+QBTGATSC=%d,%d,%d,%d,%d",Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].svc_uuid,Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].charaId,
+			Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].svc_property,Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].uuid_type,Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].uuid_16);
+	modem_send_msg(cmd);
+	osDelay(1000);
+
+	sprintf(cmd,"AT+QBTGATSCV=%d,%d,%d,%d,%d,%d,\"%s\"",Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].svc_uuid,Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].charaId,Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].char_permission,
+			Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].uuid_type,Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].uuid_16,Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].val_len,Modem_GATT_Param[__MQTT_CLIENT_CHAR_ID].char_value);
+
+	modem_send_msg(cmd);
+	osDelay(1000);
+
+	/* GATT CHAR 0xB114--> Configure MQTT Port 1883 0r 8883 */
+	Modem_GATT_Param[__MQTT_PORT_CHAR_ID].svc_uuid=SVC_UUID_ABF0;
+	Modem_GATT_Param[__MQTT_PORT_CHAR_ID].charaId =__MQTT_PORT_CHAR_ID;
+	Modem_GATT_Param[__MQTT_PORT_CHAR_ID].svc_property= 4;  //Write
+	Modem_GATT_Param[__MQTT_PORT_CHAR_ID].uuid_type=1;     //16-bit UUID
+	Modem_GATT_Param[__MQTT_PORT_CHAR_ID].uuid_16 =UUID16_MQTT_PORT;
+	Modem_GATT_Param[__MQTT_PORT_CHAR_ID].val_len=10;
+	strcpy(Modem_GATT_Param[__MQTT_PORT_CHAR_ID].char_value,"48656C6C6F"); // Send NULL
+	Modem_GATT_Param[__MQTT_PORT_CHAR_ID].char_permission=2;  // write Only
+
+	sprintf(cmd,"AT+QBTGATSC=%d,%d,%d,%d,%d",Modem_GATT_Param[__MQTT_PORT_CHAR_ID].svc_uuid,Modem_GATT_Param[__MQTT_PORT_CHAR_ID].charaId,
+			Modem_GATT_Param[__MQTT_PORT_CHAR_ID].svc_property,Modem_GATT_Param[__MQTT_PORT_CHAR_ID].uuid_type,Modem_GATT_Param[__MQTT_PORT_CHAR_ID].uuid_16);
+	modem_send_msg(cmd);
+	osDelay(1000);
+
+	sprintf(cmd,"AT+QBTGATSCV=%d,%d,%d,%d,%d,%d,\"%s\"",Modem_GATT_Param[__MQTT_PORT_CHAR_ID].svc_uuid,Modem_GATT_Param[__MQTT_PORT_CHAR_ID].charaId,Modem_GATT_Param[__MQTT_PORT_CHAR_ID].char_permission,
+			Modem_GATT_Param[__MQTT_PORT_CHAR_ID].uuid_type,Modem_GATT_Param[__MQTT_PORT_CHAR_ID].uuid_16,Modem_GATT_Param[__MQTT_PORT_CHAR_ID].val_len,Modem_GATT_Param[__MQTT_PORT_CHAR_ID].char_value);
+
+	modem_send_msg(cmd);
+	osDelay(1000);
+
+
+}
+bool modem_parse_ble_write_data(char *input, BLEWriteData *outData)
+{
+
+	client_write=1;
+    const char *marker = "+QBTLEVALDATA:";
+    char *start = strstr(input, marker);
+    if (!start) return false;
+
+    start += strlen(marker); // move past "+QBTLEVALDATA:"
+
+    // Trim leading whitespace
+    while (*start == ' ' || *start == '\r' || *start == '\n') start++;
+
+    // Step-by-step manual parsing
+    // Format: <cid>,"<address>",<value_length>,"<value>"
+
+    // 1. Get <cid>
+    char *token = strtok(start, ",");
+    if (!token) return false;
+    outData->cid = atoi(token);
+
+    // 2. Get "<address>"
+    token = strtok(NULL, ",");
+    if (!token || token[0] != '\"') return false;
+    token++;  // skip opening quote
+    char *quote = strchr(token, '\"');
+    if (!quote) return false;
+    *quote = '\0';
+    strncpy(outData->address, token, sizeof(outData->address));
+
+    // 3. Get <value_length>
+    token = strtok(NULL, ",");
+    if (!token) return false;
+    outData->value_length = atoi(token);
+
+    // 4. Get "<value>"
+    token = strtok(NULL, "\r\n"); // ends at CR or LF
+    if (!token || token[0] != '\"') return false;
+    token++; // skip opening quote
+    quote = strchr(token, '\"');
+    if (!quote) return false;
+    *quote = '\0';
+    strncpy(outData->value, token, sizeof(outData->value));
+    hex_to_ascii(BLE_Write_data.value, Ble_write_data_ascii);
+    memset(EC200u_Rx_Buff,0,sizeof(EC200u_Rx_Buff));
+    return true;
+}
+bool hex_to_ascii(const char *hex_str, char *out) {
+    size_t len = strlen(hex_str);
+    if (len % 2 != 0) return false;  // Must be even length
+
+    for (size_t i = 0; i < len; i += 2) {
+        if (!isxdigit((unsigned char)hex_str[i]) || !isxdigit((unsigned char)hex_str[i + 1])) {
+            return false;  // Not valid hex digits
+        }
+
+        char byte_str[3] = { hex_str[i], hex_str[i + 1], '\0' };
+        out[i / 2] = (char)strtol(byte_str, NULL, 16);
+    }
+
+    out[len / 2] = '\0';  // Null-terminate output
+    return true;
 }

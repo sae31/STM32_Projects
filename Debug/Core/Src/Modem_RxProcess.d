@@ -48,7 +48,8 @@ Core/Src/Modem_RxProcess.o: ../Core/Src/Modem_RxProcess.c \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
- ../Core/Inc/Modem_RxProcess.h ../Core/Inc/EC200U.h
+ ../Core/Inc/Modem_RxProcess.h ../Core/Inc/EC200U.h \
+ ../Core/Inc/Modem_BLE.h ../Core/Inc/config.h
 ../Core/Inc/ATCommands.h:
 ../Drivers/STM32G0xx_HAL_Driver/Inc/stm32g0xx_hal.h:
 ../Core/Inc/stm32g0xx_hal_conf.h:
@@ -100,3 +101,5 @@ Core/Src/Modem_RxProcess.o: ../Core/Src/Modem_RxProcess.c \
 ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h:
 ../Core/Inc/Modem_RxProcess.h:
 ../Core/Inc/EC200U.h:
+../Core/Inc/Modem_BLE.h:
+../Core/Inc/config.h:

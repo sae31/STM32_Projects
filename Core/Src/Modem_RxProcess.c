@@ -4,14 +4,15 @@
  *  Created on: Jun 22, 2025
  *      Author: sai
  */
-#include "string.h"
-#include "stdio.h"
-#include "stdint.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdint.h>
 #include "ATCommands.h"
 #include "stm32g0xx_hal.h"
 #include "cmsis_os.h"
 #include "Modem_RxProcess.h"
 #include "EC200U.h"
+#include "Modem_BLE.h"
 /****************************** MACROS *************************************************/
 
 #define CHAR_IS_NUM(c)       ((c) >= '0' && (c) <= '9')
@@ -19,11 +20,15 @@
 
 /****************************** Private Variables **************************************/
 extern osThreadId ModemRx_TaskHandle;
+extern uint8_t clear_buff;
 struct modem_info modem_info_t;
 uint8_t Modem_AT_check=0;
+char ble_conn_buff[105]={0};
+BLEWriteData BLE_Write_data;
 /****************************** External Variables **************************************/
 
 extern GpsData GpsInfo_t;
+extern BleState Ble_info_t;
 /****************************** Function Prototypes **************************************/
 
 void print_msg(const char *msg)
@@ -222,6 +227,23 @@ void ModemRx_Process(void const * argument)
 						modem_parse_gps_location((const char*)EC200u_Rx_Buff, &GpsInfo_t);
 					}
 				}
+				// ========== Parse BLE responses
+				case MODEM_TURN_ON_BLE:
+				{
+					if(modem_check_resp((const char*)EC200u_Rx_Buff,"OK")) // Need to handle +CME ERROR:4 (already turned on)
+					{
+						cmd_val=0;
+						Ble_info_t.power=1;
+					}
+				}
+				case MODEM_TURN_OFF_BLE:
+				{
+					if(modem_check_resp((const char*)EC200u_Rx_Buff,"OK")) // Need to handle +CME ERROR:4 (already turned off)
+					{
+						cmd_val=0;
+						Ble_info_t.power=0;
+					}
+				}
 				default:
 				{
 					if(modem_check_resp((const char*)EC200u_Rx_Buff, "+QMTSTAT"))
@@ -229,7 +251,54 @@ void ModemRx_Process(void const * argument)
 						const char* p = (const char*)EC200u_Rx_Buff;
 						modem_info_t.mqtt_info_t.mqtt_client_idx = modem_parse_number(&p);
 						modem_info_t.mqtt_info_t.mqtt_urc_error=modem_parse_number(&p);
-						modem_handle_mqtt_urc_codes();
+
+					}
+					/*
+					if(modem_check_resp((const char*)EC200u_Rx_Buff, "+QBTLESTATE"))
+					{
+						char *qbtlestate_line = strstr((char *)EC200u_Rx_Buff, "+QBTLESTATE:");
+						if (qbtlestate_line)
+						{
+						    // Try to find end of line (could be \r or \n), or just use full remaining string if not found
+						    char *line_end = strpbrk(qbtlestate_line, "\r\n");
+						    size_t line_len = line_end ? (size_t)(line_end - qbtlestate_line) : strlen(qbtlestate_line);
+
+						    // Ensure we don't exceed the buffer size
+						    if (line_len >= sizeof(ble_conn_buff)) {
+						        line_len = sizeof(ble_conn_buff) - 1;
+						    }
+
+						    // Copy only the line into ble_conn_buff
+						    memset(ble_conn_buff, 0, sizeof(ble_conn_buff));
+						    strncpy(ble_conn_buff, qbtlestate_line, line_len);
+						    ble_conn_buff[line_len] = '\0';  // Null terminate
+
+
+
+						    // Optional: Parse connection state
+						    if (modem_parse_ble_state(ble_conn_buff, &Ble_info_t) == 0)
+						    {
+
+						    }
+						}
+
+					}
+					*/
+					if(modem_check_resp((const char*)EC200u_Rx_Buff, "+QBTGATSCON"))
+					{
+						Ble_info_t.conn_state=1;
+						clear_buff=1;
+						memset(EC200u_Rx_Buff,0,sizeof(EC200u_Rx_Buff));
+					}
+					if(modem_check_resp((const char*)EC200u_Rx_Buff, "+QBTGATSDCON"))
+					{
+						clear_buff=1;
+						Ble_info_t.conn_state=0;
+						memset(EC200u_Rx_Buff,0,sizeof(EC200u_Rx_Buff));
+					}
+					if(modem_check_resp((const char*)EC200u_Rx_Buff, "+QBTLEVALDATA:"))
+					{
+						modem_parse_ble_write_data((char *)EC200u_Rx_Buff, &BLE_Write_data);
 					}
 					break;
 				}
@@ -237,6 +306,7 @@ void ModemRx_Process(void const * argument)
 
 		}
 		osDelay(10);
+
 	}
 }
 

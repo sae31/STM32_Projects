@@ -9,7 +9,7 @@
 #define INC_CONFIG_H_
 
 #define AIRTEL_APN "airtelgprs.com"
-
+#define TELEMETRY_SEND_TIME  10   //seconds
 // ==== MQTT CONFIGURATION ====
 
 
@@ -23,18 +23,20 @@
 #define MQTT_TOPIC_PUB       "v1/devices/me/telemetry"
 #define MQTT_TOPIC_SUB       "v1/devices/me/attributes"
 #define MQTT_QOS             1
-#define MQTT_MSG_ID       1
-#define MQTT_RETAIN_FLAG  0
+#define MQTT_MSG_ID       	 1
+#define MQTT_RETAIN_FLAG  	 0
 
 
 // ==== BLE CONFIGURATION ====
 #define MAX_INTERVAL  120
 #define MIN_INTERVAL  60
-#define GATTS_SERVICE_UUID  0XABF0
+#define DEFAULT_BLE_DEVICENAME  "Quectel"
 
+#define GATTS_SERVICE_UUID  0xABF0
+#define MAX_CHAR_IN_SVC     5
 
 // ==== GPS/GNSS CONFIGURATION ====
-#define GPS_EN   1
+//#define GPS_EN   1
 
 
 

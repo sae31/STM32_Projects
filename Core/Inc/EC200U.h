@@ -8,9 +8,10 @@
 #ifndef INC_EC200U_H_
 #define INC_EC200U_H_
 
-#include "stdint.h"
+#include <stdint.h>
 
-typedef struct {
+typedef struct
+{
     char utc_time[11];         // UTC time (HHMMSS.SSS)
     double latitude;           // Decimal degrees
     double longitude;          // Decimal degrees
@@ -23,6 +24,14 @@ typedef struct {
     char date[7];              // Date (DDMMYY)
     int nsat;                  // Number of satellites used
 } GpsData;
+
+typedef struct
+{
+	char mqtt_username[20];
+	char mqtt_password[20];
+	char mqtt_client_id[20];
+	uint16_t mqtt_port;
+}mqtt_conf_t;
 extern char MQTT_PUB_Buff[512];
 extern GpsData GpsInfo_t;
 extern struct modem_info modem_info_t;
@@ -35,6 +44,8 @@ void modem_set_sim_configurations();
 void modem_reset();
 void modem_mqtt_init();
 void modem_mqtt_publish();
+void modem_mqtt_connect();
+void modem_mqtt_disconnect();
 void format_json_message();
 double convertDMMtoDecimal(const char *dmmStr, char direction);
 int modem_parse_gps_location(const char *response, GpsData *data);

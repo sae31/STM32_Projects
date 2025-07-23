@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include "Modem_BLE.h"
 #include "config.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,8 +55,13 @@ osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
 osThreadId ModemRx_TaskHandle;
 osThreadId ModemBLE_TaskHandle;
-uint8_t EC200u_Rx_Buff[100];
+osTimerId Telemetry_timer;
+uint8_t EC200u_Rx_Buff[200];
 int Msg_cnt=0;
+uint8_t telemetry_send_time=0;
+
+extern flag mqtt_flag;
+extern mqtt_conf_t modem_mqtt_conf_t;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,7 +77,10 @@ extern void Modem_Rx_Process_start();
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void Telemetry_timer_cb( TimerHandle_t xTimer )
+{
+	telemetry_send_time=1;
+}
 /* USER CODE END 0 */
 
 /**
@@ -91,7 +100,7 @@ int main(void)
 
   /* USER CODE BEGIN Init */
   //__enable_irq();
-  SCB->VTOR = 0x0800C000;
+  //SCB->VTOR = 0x0800C000;
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -115,10 +124,32 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
+
+  osSemaphoreId Modem_port_block_semaphore;
+  Modem_port_block_semaphore=xSemaphoreCreateBinary();
+  if(Modem_port_block_semaphore == NULL)
+  {
+	  printf("Failed to create a semaphore");
+  }
+  else
+  {
+	  printf("Created a Semaphore");
+  }
+
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
+
+  Telemetry_timer=xTimerCreate("Timer", TELEMETRY_SEND_TIME*1000, pdTRUE, (void*)0, Telemetry_timer_cb);
+  if(Telemetry_timer == NULL)
+  {
+	  printf("Failed to create a timer");
+  }
+  else
+  {
+	  printf("Created a timer");
+  }
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -135,7 +166,7 @@ int main(void)
   /* add threads, ... */
   Modem_Rx_Process_start();
 
-  //Modem_BLE_Start();
+  Modem_BLE_Start();
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
@@ -169,11 +200,18 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSIDiv = RCC_HSI_DIV1;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV1;
+  RCC_OscInitStruct.PLL.PLLN = 8;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -183,11 +221,11 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
@@ -334,6 +372,7 @@ void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
+  xTimerStart(Telemetry_timer, 0);
   HAL_UARTEx_ReceiveToIdle_IT(&huart1,(uint8_t*)EC200u_Rx_Buff, sizeof(EC200u_Rx_Buff));
 
 //  osDelay(1000);
@@ -365,15 +404,28 @@ void StartDefaultTask(void const * argument)
 	//HAL_UART_Transmit(&huart1,(uint8_t*)"AT\r\n",strlen("AT\r\n"), 1000);
 	//HAL_UART_Transmit(&huart2,(uint8_t*)"Hello\r\n",strlen("Hello\r\n"), 1000);
 	//sprintf(MQTT_PUB_Buff,"Msg_count:%d",Msg_cnt++);
-	Msg_cnt++;
-	modem_mqtt_publish();
+
 	#ifdef GPS_EN
 
 	modem_initiate_cmd(MODEM_GPS_GET_CURR_LOCATION);
 	osDelay(500);
 
 	#endif
-    osDelay(500);
+    //osDelay(1000);
+    if(telemetry_send_time)
+    {
+    	Msg_cnt++;
+    	modem_mqtt_publish();
+    	telemetry_send_time=0;
+    }
+
+    if( (mqtt_flag.change_on_mqtt_username ==1) && (mqtt_flag.change_on_mqtt_password==1) && (mqtt_flag.change_on_mqtt_clientid==1) )
+    {
+    	modem_mqtt_disconnect();
+    	modem_mqtt_connect();
+    	osDelay(2000);
+    }
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }

@@ -45,7 +45,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-extern uint8_t EC200u_Rx_Buff[100];
+extern uint8_t EC200u_Rx_Buff[200];
 extern osThreadId ModemRx_TaskHandle;
 /* USER CODE END PV */
 

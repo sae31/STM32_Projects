@@ -42,8 +42,9 @@ struct modem_info
 
 //osThreadId ModemRx_TaskHandle;
 extern UART_HandleTypeDef huart2;
-extern uint8_t EC200u_Rx_Buff[100];
+extern uint8_t EC200u_Rx_Buff[200];
 extern uint8_t cmd_val;
+
 
 
 void Modem_Rx_Process_start();
