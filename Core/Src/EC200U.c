@@ -2,8 +2,11 @@
  * EC200U.c
  *
  *  Created on: Jun 21, 2025
- *      Author: sai
+ *      Author: SAI KUMAR
  */
+
+/****************************** Includes *************************************************/
+
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -26,27 +29,152 @@ GpsData GpsInfo_t;
 mqtt_conf_t modem_mqtt_conf_t;
 extern flag mqtt_flag;
 /****************************** Private Variables **************************************/
+
 uint8_t cmd_val=0;
 char MQTT_PUB_Buff[MQTT_PUB_BUFF_LEN]={0};
+char Lat_string[10],Long_string[10],temp_Lat_string[10],temp_Long_string[10];
+uint8_t Check_gps=0;
 
 /****************************** External Variables **************************************/
+
 extern UART_HandleTypeDef huart1;
-extern int Msg_cnt;
+extern osThreadId Mqtt_TaskHadle;
+extern osTimerId Telemetry_timer;
+extern osSemaphoreId Modem_port_block_semaphore;
+extern int Msg_cnt,telemetry_send_time,Gps_fetch;
+extern uint8_t mqtt_reinit;
+extern flag mqtt_flag;
+extern mqtt_conf_t modem_mqtt_conf_t;
+
 /****************************** Function Prototypes **************************************/
+
 uint8_t modem_check_resp(const char *str,char *find_str)
 {
     if (strstr(str, find_str) != NULL)
-    {
         return 1;
-    } else
-    {
+    else
         return 0;
-    }
 }
 void modem_send_msg(const char* msg)
 {
 	HAL_UART_Transmit(&huart1,(uint8_t*)msg,strlen(msg), 1000);
 	HAL_UART_Transmit(&huart1, (uint8_t*)"\r\n", strlen("\r\n"), 1000);
+}
+void Modem_MQTT_start()
+{
+	osThreadDef(Mqtt_Task, Modem_MQTT_Task, osPriorityNormal, 0, 512);
+	Mqtt_TaskHadle = osThreadCreate(osThread(Mqtt_Task), NULL);
+}
+/* USER CODE BEGIN Header_Modem_MQTT_Task */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_Modem_MQTT_Task */
+void Modem_MQTT_Task(void const * argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+
+  HAL_UARTEx_ReceiveToIdle_IT(&huart1,(uint8_t*)EC200u_Rx_Buff, sizeof(EC200u_Rx_Buff));
+
+//  osDelay(1000);
+
+  modem_initiate_cmd(MODEM_AT_CHECK);
+  osDelay(300);
+
+  modem_initiate_cmd(MODEM_DISABLE_ECHO);
+  osDelay(300);
+
+  get_modem_info();
+
+  modem_set_sim_configurations();
+
+  modem_mqtt_init();
+
+  #ifdef GPS_EN
+
+	modem_initiate_cmd(MODEM_GPS_TURN_OFF);
+	osDelay(1000);
+
+	modem_initiate_cmd(MODEM_GPS_TURN_ON);
+	osDelay(1000);
+
+  #endif
+
+  #ifdef TIMERS_EN
+
+  xTimerStart(Telemetry_timer, 0);
+
+  #endif
+  xSemaphoreGive(Modem_port_block_semaphore);
+  for(;;)
+  {
+	//HAL_UART_Transmit(&huart1,(uint8_t*)"AT\r\n",strlen("AT\r\n"), 1000);
+	//HAL_UART_Transmit(&huart2,(uint8_t*)"Hello\r\n",strlen("Hello\r\n"), 1000);
+	//sprintf(MQTT_PUB_Buff,"Msg_count:%d",Msg_cnt++);
+
+//	#ifdef GPS_EN
+//
+//	if(Gps_fetch==2)
+//	{
+//		xSemaphoreTake(Modem_port_block_semaphore,2000);
+//		modem_initiate_cmd(MODEM_GPS_GET_CURR_LOCATION);
+//		xSemaphoreGive(Modem_port_block_semaphore);
+//
+//		osDelay(500);
+//		Gps_fetch=0;
+//	}
+//	#endif
+
+    if(telemetry_send_time)
+    {
+    	strcpy(temp_Lat_string,Lat_string);
+    	strcpy(temp_Long_string,Long_string);
+
+    	modem_initiate_cmd(MODEM_GPS_GET_CURR_LOCATION);
+    	osDelay(500);
+    	Check_gps=1;
+
+    	Msg_cnt++;
+    	format_json_message();
+    	xSemaphoreTake(Modem_port_block_semaphore,4000);
+    	modem_mqtt_publish();
+    	xSemaphoreGive(Modem_port_block_semaphore);
+
+    	telemetry_send_time=0;
+    	osDelay(300);
+    }
+    if( (GpsInfo_t.latitude!=0) && (Check_gps==1) )
+    {
+    	if(!strcmp(temp_Lat_string,Lat_string))
+    	{
+    		mqtt_flag.change_on_lat=1;
+    	}
+    	if(!strcmp(temp_Long_string,Long_string))
+    	{
+    		mqtt_flag.change_on_long=1;
+    	}
+    	Check_gps=0;
+    }
+    if(modem_info_t.mqtt_info_t.mqtt_urc_error)
+    {
+    	modem_handle_mqtt_urc_codes();
+    	osDelay(300);
+    }
+//    if( (mqtt_flag.change_on_mqtt_username ==1) && (mqtt_flag.change_on_mqtt_password==1) && (mqtt_flag.change_on_mqtt_clientid==1) )
+    if(mqtt_reinit)
+    {
+    	modem_mqtt_disconnect();
+    	modem_mqtt_connect();
+    	osDelay(2000);
+    	mqtt_reinit=0;
+    	memset(&mqtt_flag,0,sizeof(mqtt_flag));  //TODO: Need to exclude Lat and Long
+    }
+    osDelay(100);
+  }
+  /* USER CODE END 5 */
 }
 void modem_initiate_cmd(uint8_t cmd)
 {
@@ -145,6 +273,7 @@ void modem_initiate_cmd(uint8_t cmd)
 		/********************************** MQTT AT Commands *****************************/
 		case MODEM_MQTT_VERSION_CFG:
 		{
+			memset(EC200u_Rx_Buff, 0, sizeof(EC200u_Rx_Buff));
 			cmd_val=MODEM_MQTT_VERSION_CFG;
 			char cmd[128];
 			// --- Configure MQTT Version ---
@@ -154,6 +283,7 @@ void modem_initiate_cmd(uint8_t cmd)
 		}
 		case MODEM_MQTT_OPEN:
 		{
+			memset(EC200u_Rx_Buff, 0, sizeof(EC200u_Rx_Buff));
 			cmd_val=MODEM_MQTT_OPEN;
 			char cmd[128];
 			// --- Open MQTT Connection ---
@@ -163,15 +293,21 @@ void modem_initiate_cmd(uint8_t cmd)
 		}
 		case MODEM_MQTT_CONN:
 		{
+			memset(EC200u_Rx_Buff, 0, sizeof(EC200u_Rx_Buff));
 			cmd_val=MODEM_MQTT_CONN;
 			char cmd[200];
 			// --- Connect MQTT Client ---
+			strcpy(modem_mqtt_conf_t.mqtt_username,MQTT_USERNAME);
+			strcpy(modem_mqtt_conf_t.mqtt_password,MQTT_PASSWORD);
+			strcpy(modem_mqtt_conf_t.mqtt_client_id,MQTT_CLIENT_ID);
+			modem_mqtt_conf_t.mqtt_port= MQTT_PORT;
 			sprintf(cmd, "AT+QMTCONN=%d,\"%s\",\"%s\",\"%s\"", MQTT_CLIENT_IDX, MQTT_CLIENT_ID,MQTT_USERNAME,MQTT_PASSWORD);
 			modem_send_msg(cmd);
 			break;
 		}
 		case MODEM_MQTT_SUBSCRIBE:
 		{
+			memset(EC200u_Rx_Buff, 0, sizeof(EC200u_Rx_Buff));
 			cmd_val=MODEM_MQTT_SUBSCRIBE;
 			char cmd[128];
 			// --- Subscribe to Topic ---
@@ -242,7 +378,7 @@ void modem_initiate_cmd(uint8_t cmd)
 			//send_at_command("AT+QBTGATSS=0,1,6144,1\r\n");
 			//modem_send_msg("AT+QBTGATSS=0,1,44016,1");
 			char cmd[128];
-			sprintf(cmd,"AT+QBTGATSS=0,1,%d,1",GATTS_SERVICE_UUID);
+			sprintf(cmd,"AT+QBTGATSS=0,1,%d,1",GATTS_MQTT_SERVICE_UUID);
 			modem_send_msg(cmd);
 			break;
 		}
@@ -378,13 +514,20 @@ void modem_mqtt_init()
 }
 void modem_mqtt_publish()
 {
-	format_json_message();
+//	format_json_message();
 //	osDelay(100);
 	modem_initiate_cmd(MODEM_MQTT_PUBLISH);
-	osDelay(300);
+//	osDelay(300);
+	memset(EC200u_Rx_Buff,0,sizeof(EC200u_Rx_Buff));
 }
 void modem_mqtt_connect()
 {
+	modem_initiate_cmd(MODEM_MQTT_VERSION_CFG);
+	osDelay(300);
+
+	modem_initiate_cmd(MODEM_MQTT_OPEN);
+	osDelay(2000);
+
 	char cmd[200];
 	// --- Connect MQTT Client ---
 	sprintf(cmd, "AT+QMTCONN=%d,\"%s\",\"%s\",\"%s\"", MQTT_CLIENT_IDX, modem_mqtt_conf_t.mqtt_client_id,
@@ -442,11 +585,11 @@ void modem_handle_mqtt_urc_codes()
 }
 void format_json_message(void)
 {
-	char Lat_string[10],Long_string[10];
+
     cJSON *root = cJSON_CreateObject();
     if (root == NULL)
     {
-        print_msg("JSON object creation failed\r\n");
+        Log_msg("JSON object creation failed\r\n");
         return;
     }
 
@@ -473,7 +616,7 @@ void format_json_message(void)
         free(json_str);
     } else
     {
-        print_msg("JSON formatting failed\r\n");
+        Log_msg("JSON formatting failed\r\n");
     }
 
     cJSON_Delete(root);

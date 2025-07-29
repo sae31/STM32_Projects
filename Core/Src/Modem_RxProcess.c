@@ -2,7 +2,7 @@
  * Modem_RxProcess.c
  *
  *  Created on: Jun 22, 2025
- *      Author: sai
+ *      Author: SAI KUMAR
  */
 #include <string.h>
 #include <stdio.h>
@@ -19,26 +19,30 @@
 #define CHAR_TO_NUM(c)       ((c) - '0')
 
 /****************************** Private Variables **************************************/
+
 extern osThreadId ModemRx_TaskHandle;
 extern uint8_t clear_buff;
 struct modem_info modem_info_t;
 uint8_t Modem_AT_check=0;
 char ble_conn_buff[105]={0};
 BLEWriteData BLE_Write_data;
+
 /****************************** External Variables **************************************/
 
 extern GpsData GpsInfo_t;
 extern BleState Ble_info_t;
+extern uint8_t mqtt_reinit;
+
 /****************************** Function Prototypes **************************************/
 
-void print_msg(const char *msg)
+void Log_msg(const char *msg)
 {
 	HAL_UART_Transmit(&huart2,(uint8_t*)msg,strlen(msg), 1000);
 }
 
 void Modem_Rx_Process_start()
 {
-	osThreadDef(ModemRxTask, ModemRx_Process, osPriorityNormal, 0, 256);
+	osThreadDef(ModemRxTask, ModemRx_Process, osPriorityHigh, 0, 512);
 	ModemRx_TaskHandle = osThreadCreate(osThread(ModemRxTask), NULL);
 }
 void ModemRx_Process(void const * argument)
@@ -51,7 +55,7 @@ void ModemRx_Process(void const * argument)
 		ulNotifiedValue=ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		if(ulNotifiedValue>0)
 		{
-			print_msg((const char*)EC200u_Rx_Buff);
+			Log_msg((const char*)EC200u_Rx_Buff);
 			//print_msg("Rx Task Running\r\n");
 			switch(cmd_val)
 			{
@@ -97,12 +101,12 @@ void ModemRx_Process(void const * argument)
 					{
 						cmd_val=0;
 						modem_info_t.simcard_info.sim_status=1;
-						print_msg("Sim Card Detected\r\n");
+						Log_msg("Sim Card Detected\r\n");
 					}
 					else
 					{
 						modem_info_t.simcard_info.sim_status=255;
-						print_msg("Sim Card Not Detected\r\n");
+						Log_msg("Sim Card Not Detected\r\n");
 					}
 					break;
 				}
@@ -112,12 +116,12 @@ void ModemRx_Process(void const * argument)
 					{
 						cmd_val=0;
 						modem_info_t.simcard_info.sim_reg_status=1;
-						print_msg("Sim Card Registered\r\n");
+						Log_msg("Sim Card Registered\r\n");
 					}
 					else
 					{
 						modem_info_t.simcard_info.sim_reg_status=255;
-						print_msg("Sim Card Registration Failed\r\n");
+						Log_msg("Sim Card Registration Failed\r\n");
 					}
 					break;
 				}
@@ -127,12 +131,12 @@ void ModemRx_Process(void const * argument)
 					{
 						cmd_val=0;
 						modem_info_t.simcard_info.gprs_attachment=1;
-						print_msg("GPRS attachment sucessfull\r\n");
+						Log_msg("GPRS attachment sucessfull\r\n");
 					}
 					else
 					{
 						modem_info_t.simcard_info.gprs_attachment=255;
-						print_msg("GPRS attachment Failed\r\n");
+						Log_msg("GPRS attachment Failed\r\n");
 					}
 					break;
 				}
@@ -142,12 +146,12 @@ void ModemRx_Process(void const * argument)
 					{
 						cmd_val=0;
 						modem_info_t.simcard_info.pdp_status=1;
-						print_msg("PDP is set\r\n");
+						Log_msg("PDP is set\r\n");
 					}
 					else
 					{
 						modem_info_t.simcard_info.pdp_status=255;
-						print_msg("PDP is Failed\r\n");
+						Log_msg("PDP is Failed\r\n");
 					}
 					break;
 				}
@@ -157,12 +161,12 @@ void ModemRx_Process(void const * argument)
 					{
 						cmd_val=0;
 						modem_info_t.simcard_info.pdp_active_status=1;
-						print_msg("PDP is active\r\n");
+						Log_msg("PDP is active\r\n");
 					}
 					else
 					{
 						modem_info_t.simcard_info.pdp_active_status=255;
-						print_msg("PDP is activation Failed\r\n");
+						Log_msg("PDP is activation Failed\r\n");
 					}
 				}
 				case MODEM_MQTT_VERSION_CFG:
@@ -170,7 +174,7 @@ void ModemRx_Process(void const * argument)
 					if(modem_check_resp((const char*)EC200u_Rx_Buff,"OK"))
 					{
 						cmd_val=0;
-						print_msg("MQTT Configutations Done\r\n");
+						Log_msg("MQTT Configutations Done\r\n");
 					}
 					break;
 				}
@@ -186,7 +190,7 @@ void ModemRx_Process(void const * argument)
 					}
 					else if(modem_check_resp((const char*)EC200u_Rx_Buff, "ERROR"))
 					{
-						print_msg("Failed to open MQTT network for a client\r\n");
+						Log_msg("Failed to open MQTT network for a client\r\n");
 						modem_info_t.mqtt_info_t.mqtt_client_idx=255;
 						modem_info_t.mqtt_info_t.mqtt_open_stat=255;
 					}
@@ -205,7 +209,7 @@ void ModemRx_Process(void const * argument)
 					}
 					else if(modem_check_resp((const char*)EC200u_Rx_Buff, "ERROR"))
 					{
-						print_msg("Failed to connect to a MQTT client\r\n");
+						Log_msg("Failed to connect to a MQTT client\r\n");
 						modem_info_t.mqtt_info_t.mqtt_client_idx=255;
 						modem_info_t.mqtt_info_t.mqtt_conn_stat=255;
 						modem_info_t.mqtt_info_t.mqtt_conn_ret_code=255;
@@ -217,15 +221,26 @@ void ModemRx_Process(void const * argument)
 					if(modem_check_resp((const char*)EC200u_Rx_Buff, "ERROR"))
 					{
 						modem_info_t.mqtt_info_t.mqtt_subs_stat=255;
-						print_msg("Failed To subscribe to a topic\r\n");
+						Log_msg("Failed To subscribe to a topic\r\n");
 					}
+					break;
 				}
+//				case MODEM_MQTT_PUBLISH:
+//				{
+//					if(modem_check_resp((const char*)EC200u_Rx_Buff, "ERROR"))
+//					{
+//						mqtt_reinit=1;
+//						cmd_val=0;
+//					}
+//					break;
+//				}
 				case MODEM_GPS_GET_CURR_LOCATION:
 				{
 					if(modem_check_resp((const char*)EC200u_Rx_Buff, "+QGPSLOC:"))
 					{
 						modem_parse_gps_location((const char*)EC200u_Rx_Buff, &GpsInfo_t);
 					}
+					break;
 				}
 				// ========== Parse BLE responses
 				case MODEM_TURN_ON_BLE:
@@ -235,6 +250,7 @@ void ModemRx_Process(void const * argument)
 						cmd_val=0;
 						Ble_info_t.power=1;
 					}
+					break;
 				}
 				case MODEM_TURN_OFF_BLE:
 				{
@@ -243,6 +259,7 @@ void ModemRx_Process(void const * argument)
 						cmd_val=0;
 						Ble_info_t.power=0;
 					}
+					break;
 				}
 				default:
 				{
@@ -296,7 +313,7 @@ void ModemRx_Process(void const * argument)
 						Ble_info_t.conn_state=0;
 						memset(EC200u_Rx_Buff,0,sizeof(EC200u_Rx_Buff));
 					}
-					if(modem_check_resp((const char*)EC200u_Rx_Buff, "+QBTLEVALDATA:"))
+					if(modem_check_resp((const char*)EC200u_Rx_Buff, "+QBTLEVALDATA"))
 					{
 						modem_parse_ble_write_data((char *)EC200u_Rx_Buff, &BLE_Write_data);
 					}

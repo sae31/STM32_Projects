@@ -2,7 +2,7 @@
  * Modem_RxProcess.h
  *
  *  Created on: Jun 22, 2025
- *      Author: sai
+ *      Author: SAI KUMAR
  */
 
 #ifndef INC_MODEM_RXPROCESS_H_
@@ -51,6 +51,6 @@ void Modem_Rx_Process_start();
 void ModemRx_Process(void const * argument);
 uint8_t modem_parse_string(const char** src, char* dst, size_t dst_len);
 int32_t modem_parse_number(const char** str);
-void print_msg(const char *msg);
+void Log_msg(const char *msg);
 
 #endif /* INC_MODEM_RXPROCESS_H_ */

@@ -2,7 +2,7 @@
  * EC200U.h
  *
  *  Created on: Jun 21, 2025
- *      Author: sai
+ *      Author: SAI KUMAR
  */
 
 #ifndef INC_EC200U_H_
@@ -37,6 +37,8 @@ extern GpsData GpsInfo_t;
 extern struct modem_info modem_info_t;
 
 uint8_t modem_check_resp(const char *str,char *find_str);
+void Modem_MQTT_start();
+void Modem_MQTT_Task(void const * argument);
 void modem_send_msg(const char* msg);
 void modem_initiate_cmd(uint8_t cmd);
 void get_modem_info();

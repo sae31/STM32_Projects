@@ -51,25 +51,28 @@
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
-osThreadId defaultTaskHandle;
+
 /* USER CODE BEGIN PV */
+
+osThreadId Mqtt_TaskHadle;
 osThreadId ModemRx_TaskHandle;
 osThreadId ModemBLE_TaskHandle;
 osTimerId Telemetry_timer;
+osSemaphoreId Modem_port_block_semaphore;
+uint16_t EC200u_Rx_Len = 0;
 uint8_t EC200u_Rx_Buff[200];
-int Msg_cnt=0;
-uint8_t telemetry_send_time=0;
+uint32_t Msg_cnt=0;
+uint8_t telemetry_send_time=0,Gps_fetch=0;
 
-extern flag mqtt_flag;
-extern mqtt_conf_t modem_mqtt_conf_t;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
+
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART1_UART_Init(void);
-void StartDefaultTask(void const * argument);
+void Modem_MQTT_Task(void const * argument);
 
 /* USER CODE BEGIN PFP */
 extern void Modem_Rx_Process_start();
@@ -80,7 +83,26 @@ extern void Modem_Rx_Process_start();
 void Telemetry_timer_cb( TimerHandle_t xTimer )
 {
 	telemetry_send_time=1;
+	Gps_fetch++;
 }
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+  if (huart->Instance == USART1)
+  {
+    EC200u_Rx_Len = Size;
+
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    vTaskNotifyGiveFromISR(ModemRx_TaskHandle, &xHigherPriorityTaskWoken);
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
+//    memset(EC200u_Rx_Buff, 0, sizeof(EC200u_Rx_Buff));
+
+    HAL_UARTEx_ReceiveToIdle_IT(huart, &EC200u_Rx_Buff[0], sizeof(EC200u_Rx_Buff));
+  }
+}
+
+
 /* USER CODE END 0 */
 
 /**
@@ -125,8 +147,9 @@ int main(void)
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
 
-  osSemaphoreId Modem_port_block_semaphore;
+
   Modem_port_block_semaphore=xSemaphoreCreateBinary();
+
   if(Modem_port_block_semaphore == NULL)
   {
 	  printf("Failed to create a semaphore");
@@ -140,8 +163,12 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
+  #ifdef TIMERS_EN
 
   Telemetry_timer=xTimerCreate("Timer", TELEMETRY_SEND_TIME*1000, pdTRUE, (void*)0, Telemetry_timer_cb);
+
+  #endif
+  /*
   if(Telemetry_timer == NULL)
   {
 	  printf("Failed to create a timer");
@@ -150,6 +177,7 @@ int main(void)
   {
 	  printf("Created a timer");
   }
+  */
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -159,14 +187,16 @@ int main(void)
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
 
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 256);
-  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  Modem_MQTT_start();
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   Modem_Rx_Process_start();
 
   Modem_BLE_Start();
+
+
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
@@ -361,74 +391,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartDefaultTask */
-/**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const * argument)
-{
-  /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  xTimerStart(Telemetry_timer, 0);
-  HAL_UARTEx_ReceiveToIdle_IT(&huart1,(uint8_t*)EC200u_Rx_Buff, sizeof(EC200u_Rx_Buff));
 
-//  osDelay(1000);
-
-  modem_initiate_cmd(MODEM_AT_CHECK);
-  osDelay(300);
-
-  modem_initiate_cmd(MODEM_DISABLE_ECHO);
-  osDelay(300);
-
-  get_modem_info();
-
-  modem_set_sim_configurations();
-
-  modem_mqtt_init();
-
-  #ifdef GPS_EN
-
-	modem_initiate_cmd(MODEM_GPS_TURN_OFF);
-	osDelay(1000);
-
-	modem_initiate_cmd(MODEM_GPS_TURN_ON);
-	osDelay(1000);
-
-  #endif
-
-  for(;;)
-  {
-	//HAL_UART_Transmit(&huart1,(uint8_t*)"AT\r\n",strlen("AT\r\n"), 1000);
-	//HAL_UART_Transmit(&huart2,(uint8_t*)"Hello\r\n",strlen("Hello\r\n"), 1000);
-	//sprintf(MQTT_PUB_Buff,"Msg_count:%d",Msg_cnt++);
-
-	#ifdef GPS_EN
-
-	modem_initiate_cmd(MODEM_GPS_GET_CURR_LOCATION);
-	osDelay(500);
-
-	#endif
-    //osDelay(1000);
-    if(telemetry_send_time)
-    {
-    	Msg_cnt++;
-    	modem_mqtt_publish();
-    	telemetry_send_time=0;
-    }
-
-    if( (mqtt_flag.change_on_mqtt_username ==1) && (mqtt_flag.change_on_mqtt_password==1) && (mqtt_flag.change_on_mqtt_clientid==1) )
-    {
-    	modem_mqtt_disconnect();
-    	modem_mqtt_connect();
-    	osDelay(2000);
-    }
-    osDelay(100);
-  }
-  /* USER CODE END 5 */
-}
 
 /**
   * @brief  Period elapsed callback in non blocking mode

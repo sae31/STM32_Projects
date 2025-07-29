@@ -92,7 +92,7 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
-
+	 __asm("BKPT #0");
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
@@ -142,15 +142,16 @@ void TIM17_IRQHandler(void)
 void USART1_IRQHandler(void)
 {
   /* USER CODE BEGIN USART1_IRQn 0 */
-  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
   /* USER CODE END USART1_IRQn 0 */
   HAL_UART_IRQHandler(&huart1);
+
   /* USER CODE BEGIN USART1_IRQn 1 */
 
-  vTaskNotifyGiveFromISR(ModemRx_TaskHandle, &xHigherPriorityTaskWoken);
-  portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-  HAL_UARTEx_ReceiveToIdle_IT(&huart1,(uint8_t*)EC200u_Rx_Buff, sizeof(EC200u_Rx_Buff));
+//  vTaskNotifyGiveFromISR(ModemRx_TaskHandle, &xHigherPriorityTaskWoken);
+//  portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+//  HAL_UARTEx_ReceiveToIdle_IT(&huart1,(uint8_t*)EC200u_Rx_Buff, sizeof(EC200u_Rx_Buff));
 //  memset(EC200u_Rx_Buff,0,sizeof(EC200u_Rx_Buff));
   /* USER CODE END USART1_IRQn 1 */
 }

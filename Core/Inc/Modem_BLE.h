@@ -2,7 +2,7 @@
  * Modem_BLE.h
  *
  *  Created on: Jul 9, 2025
- *      Author: sai
+ *      Author: SAI KUMAR
  */
 
 #ifndef INC_MODEM_BLE_H_
@@ -32,6 +32,8 @@ typedef struct
 	uint8_t change_on_mqtt_password;
 	uint8_t change_on_mqtt_clientid;
 	uint8_t change_on_mqtt_port;
+	uint8_t change_on_lat;
+	uint8_t change_on_long;
 }flag;
 typedef struct
 {
@@ -50,7 +52,9 @@ void Modem_BLE_Start();
 void Modem_BLE_Task(void const * argument);
 void modem_ble_init();
 int modem_parse_ble_state(const char *response, BleState *Ble_info_t);
-void modem_create_gatt_svc_characteristics();
+void modem_create_ble_gatt_svc_characteristics();
 bool modem_parse_ble_write_data(char *input, BLEWriteData *outData);
 bool hex_to_ascii(const char *hex_str, char *out);
+void asciiToHexStr(const char *asciiStr, char *hexStr);
+void modem_ble_update_client_lat_long();
 #endif /* INC_MODEM_BLE_H_ */

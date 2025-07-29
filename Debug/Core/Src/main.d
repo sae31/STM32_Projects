@@ -49,7 +49,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
  ../Core/Inc/EC200U.h ../Core/Inc/ATCommands.h \
  ../Core/Inc/Modem_RxProcess.h ../Core/Inc/Modem_BLE.h \
- ../Core/Inc/config.h ../Core/Inc/config.h
+ ../Core/Inc/config.h ../Core/Inc/main.h ../Core/Inc/config.h
 ../Core/Inc/main.h:
 ../Drivers/STM32G0xx_HAL_Driver/Inc/stm32g0xx_hal.h:
 ../Core/Inc/stm32g0xx_hal_conf.h:
@@ -104,4 +104,5 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Core/Inc/Modem_RxProcess.h:
 ../Core/Inc/Modem_BLE.h:
 ../Core/Inc/config.h:
+../Core/Inc/main.h:
 ../Core/Inc/config.h:

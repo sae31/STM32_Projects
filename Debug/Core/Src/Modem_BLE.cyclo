@@ -1,7 +1,9 @@
-../Core/Src/Modem_BLE.c:53:6:Modem_BLE_Start	1
-../Core/Src/Modem_BLE.c:59:6:Modem_BLE_Task	9
-../Core/Src/Modem_BLE.c:117:6:modem_ble_init	1
-../Core/Src/Modem_BLE.c:170:5:modem_parse_ble_state	5
-../Core/Src/Modem_BLE.c:196:6:modem_create_gatt_svc_characteristics	1
-../Core/Src/Modem_BLE.c:307:6:modem_parse_ble_write_data	13
-../Core/Src/Modem_BLE.c:354:6:hex_to_ascii	5
+../Core/Src/Modem_BLE.c:63:6:Modem_BLE_Start	1
+../Core/Src/Modem_BLE.c:69:6:Modem_BLE_Task	12
+../Core/Src/Modem_BLE.c:174:6:modem_ble_init	1
+../Core/Src/Modem_BLE.c:227:5:modem_parse_ble_state	5
+../Core/Src/Modem_BLE.c:253:6:modem_create_ble_gatt_svc_characteristics	1
+../Core/Src/Modem_BLE.c:413:6:modem_parse_ble_write_data	13
+../Core/Src/Modem_BLE.c:460:6:hex_to_ascii	5
+../Core/Src/Modem_BLE.c:479:6:asciiToHexStr	2
+../Core/Src/Modem_BLE.c:489:6:modem_ble_update_client_lat_long	1
